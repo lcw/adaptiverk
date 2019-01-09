@@ -104,7 +104,7 @@ function rk45(f, tspan, y0, options, varargin...)
     t1 = t0 + h
 
     # compute est
-    est = max(norm(ye,Inf)/norm(y1,Inf),eps(t0))
+    est = max(norm(ye,Inf)/norm(y1,Inf),eps(eltype(y1)))
 
     # compute alpha
     alpha = max(alphamin, min(alphamax, (tau/est)^(1/p)))
@@ -135,7 +135,7 @@ function rk45(f, tspan, y0, options, varargin...)
     end
 
     # Set the next h
-    hmin = 16*eps(t0)*abs(t0)
+    hmin = 16*eps(t0)
     h = max(S*alpha*h, hmin)
   end
 
