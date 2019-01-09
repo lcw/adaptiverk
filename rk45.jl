@@ -65,7 +65,7 @@ function rk45(f, tspan, y0, options, varargin...)
   y1 = y0+h0*f0
   f1 = f(t1,y1,varargin...)
 
-  delta = norm(f1-f0,2)/norm(y1-y0,2)
+  delta = norm(f1-f0,Inf)/norm(y1-y0,Inf)
   h = C/delta
 
   done = false
@@ -104,7 +104,7 @@ function rk45(f, tspan, y0, options, varargin...)
     t1 = t0 + h
 
     # compute est
-    est = max(norm(ye,2)/norm(y1,2),eps(t0))
+    est = max(norm(ye,Inf)/norm(y1,Inf),eps(t0))
 
     # compute alpha
     alpha = max(alphamin, min(alphamax, (tau/est)^(1/p)))
