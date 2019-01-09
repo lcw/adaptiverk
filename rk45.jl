@@ -148,15 +148,34 @@ function f(t, y)
             3y[1]-y[1]^2*y[2]]
 end
 
-options = RK45Options(relativetolerance=1e-13)
+options = RK45Options(relativetolerance=1e-4)
 y0 = @SVector [1.01, 3.0]
+tspan = (0.0, 20.0)
+ts, ys, es, ta, ha, tr, hr = rk45(f, tspan, y0, options)
 
-ts, ys, es, ta, ha, tr, hr = rk45(f, [0.0, 20.0], y0, options)
+# a = [y[1] for y in ys]
+# b = [y[2] for y in ys]
+# plot(ts, [a, b])
+# 
+# plot(ta, ha)
+# scatter!(tr, hr)
+# yaxis!("step size", :log10)
 
-a = [y[1] for y in ys]
-b = [y[2] for y in ys]
-plot(ts, [a, b])
+using DifferentialEquations, Plots
+function g(du,u,p,t)
+  du[1] = one(u[1]) + u[1]^2*u[2] - 4*u[1]
+  du[2] = 3u[1]-u[1]^2*u[2]
+end
+u0 = [1.01, 3.0]
+tspan = (0.0, 20.0)
+prob = ODEProblem(g, u0, tspan)
+solgood = solve(prob,DP5(),reltol=1e-14,abstol=1e-14)
 
-plot(ta, ha)
-scatter!(tr, hr)
-yaxis!("step size", :log10)
+sol = solve(prob,DP5(),reltol=options.relativetolerance,
+                       abstol=options.relativetolerance)
+
+@show errory = ys[end] - solgood.u[end]
+@show erroru = sol.u[end] - solgood.u[end]
+@show length(ys)
+@show length(sol.u)
+
