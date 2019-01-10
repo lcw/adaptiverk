@@ -174,8 +174,8 @@ solgood = solve(prob,DP5(),reltol=1e-14,abstol=1e-14)
 sol = solve(prob,DP5(),reltol=options.relativetolerance,
                        abstol=options.relativetolerance)
 
-@show errory = ys[end] - solgood.u[end]
-@show erroru = sol.u[end] - solgood.u[end]
+@show errory = maximum(abs.(ys[end] - solgood.u[end]))
+@show erroru = maximum(abs.(sol.u[end] - solgood.u[end]))
 @show length(ys)
 @show length(sol.u)
 
