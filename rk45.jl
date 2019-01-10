@@ -33,14 +33,10 @@ function rk45(f, tspan, y0, options, varargin...)
 
   t0, tfinal = tspan
 
-  alphamax = 2
-  alphamin = 0.5
-
   tau = options.relativetolerance
 
-  C = 0.8
-  S = 0.8
-  h0 = 1e-13
+  C = 9//10
+  h0 = 1//10^13
 
   ts = Vector{typeof(t0)}(undef,0)
   ys = Vector{typeof(y0)}(undef,0)
@@ -67,6 +63,10 @@ function rk45(f, tspan, y0, options, varargin...)
 
   delta = norm(f1-f0,Inf)/norm(y1-y0,Inf)
   h = C/delta
+
+  qoldinit=1//10^4
+  qold = T(qoldinit)
+  failfactor = 2
 
   done = false
   step = 1
@@ -104,15 +104,24 @@ function rk45(f, tspan, y0, options, varargin...)
     t1 = t0 + h
 
     # compute est
-    est = max(norm(ye,Inf)/norm(y1,Inf),eps(eltype(y1)))
+    est = max(norm(ye,Inf)/norm(y1,Inf),eps(eltype(y1)))/tau
 
-    # compute alpha
-    alpha = max(alphamin, min(alphamax, (tau/est)^(1/p)))
+    beta2 = 4//100
+    beta1 = typeof(beta2)(1//p) - 3beta2/4
+    q11 = est^beta1
+    q = q11/(qold^beta2)
+    qmax = 10
+    qmin = 1//5
+    gamma = 9//10
+    q = max(inv(qmax),min(inv(qmin),q/gamma))
 
-    if(alpha<1)
+    if(est>1)
       # reject
       append!(tr, (t0,))
       append!(hr, (h,))
+
+      h = h/min(inv(qmin),q11/gamma)
+      h = h/failfactor
 
       notdone = true
     else
@@ -123,6 +132,9 @@ function rk45(f, tspan, y0, options, varargin...)
       # set local variables for the next timestep
       t0 = t1
       y0 = y1
+
+      qold = max(est,qoldinit)
+      h = h/q
 
       # set ouput variables;
       step = step+1
@@ -136,7 +148,7 @@ function rk45(f, tspan, y0, options, varargin...)
 
     # Set the next h
     hmin = 16*eps(t0)
-    h = max(S*alpha*h, hmin)
+    h = max(h, hmin)
   end
 
   (ts, ys, es, ta, ha, tr, hr)
