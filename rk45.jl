@@ -37,7 +37,7 @@ function rk45(f, tspan, y0, options, varargin...)
   rtol = options.relativetolerance
   atol = options.absolutetolerance
 
-  C = 9//10
+  C = 1//10
   h0 = 1//10^13
 
   ts = Vector{typeof(t0)}(undef,0)
@@ -66,8 +66,8 @@ function rk45(f, tspan, y0, options, varargin...)
   delta = norm(f1-f0,Inf)/norm(y1-y0,Inf)
   h = C/delta
 
-  qoldinit=1//10^4
-  qold = T(qoldinit)
+  estinit=1//10^4
+  est_1 = est0 = one(T)
   failfactor = 2
 
   done = false
@@ -109,21 +109,24 @@ function rk45(f, tspan, y0, options, varargin...)
     # est = max(norm(ye,Inf)/norm(y1,Inf),eps(eltype(y1)))/tau
     est = max(norm(ye./(atol+rtol*abs.(y1)),Inf),eps(eltype(y1)))
 
-    beta2 = 4//100
-    beta1 = typeof(beta2)(1//p) - 3beta2/4
-    q11 = est^beta1
-    q = q11/(qold^beta2)
-    qmax = 10
-    qmin = 1//5
-    gamma = 9//10
-    q = max(inv(qmax),min(inv(qmin),q/gamma))
+    # PI controller from Tim and Julia
+    # beta2 = 4//100
+    # beta1 = typeof(beta2)(1//p) - 3beta2/4
+    # q11 = est^beta1
+    # q = q11/(est0^beta2)
+    # qmax = 10
+    # qmin = 1//5
+    # gamma = 9//10
+    # q = max(inv(qmax),min(inv(qmin),q/gamma))
 
     if(est>1)
       # reject
       append!(tr, (t0,))
       append!(hr, (h,))
 
-      h = h/min(inv(qmin),q11/gamma)
+      # Part of the PI controller from Julia
+      # h = h/min(inv(qmin),q11/gamma)
+
       h = h/failfactor
 
       notdone = true
@@ -136,8 +139,26 @@ function rk45(f, tspan, y0, options, varargin...)
       t0 = t1
       y0 = y1
 
-      qold = max(est,qoldinit)
-      h = h/q
+      # PID controller from eq (30) using the exponents in the text after
+      # eq (31) in the paper:
+      #
+      #     Additive Runge--Kutta schemes for convection--diffusion--reaction
+      #     equations
+      #
+      #     Christopher A. Kennedy and Mark H. Carpenter
+      #     Applied Numerical Mathematics
+      #     Volume 44, Issues 1--2, January 2003, Pages 139--181
+      #
+      #     https://doi.org/10.1016/S0168-9274(02)00138-1
+      h = (9//10) * h * est^(-0.49/(p-1)) * est0^(0.34/(p-1)) * est_1^(-0.10/(p-1))
+
+      # PI controller from Julia
+      # h = h/q
+
+      est_1 = est0
+      # est0 = max(est,estinit)
+      est0 = est
+
 
       # set ouput variables;
       step = step+1
@@ -185,13 +206,31 @@ end
 u0 = [1.01, 3.0]
 tspan = (0.0, 20.0)
 prob = ODEProblem(g, u0, tspan)
-solgood = solve(prob,DP5(),reltol=1e-14,abstol=1e-14)
+solgood = solve(prob,DP5(),reltol=1e-15,abstol=1e-15)
 
-sol = solve(prob,DP5(),reltol=options.relativetolerance,
-                       abstol=options.absolutetolerance)
+sol = solve(prob,DP5(),reltol=options.relativetolerance/3,
+                       abstol=options.absolutetolerance/3)
+ 
+plot(ta, ha)
+plot!(sol.t[1:end-1], diff(sol.t))
+scatter!(tr, hr)
+yaxis!("step size", :log10)
 
-@show errory = maximum(abs.(ys[end] - solgood.u[end]))
-@show erroru = maximum(abs.(sol.u[end] - solgood.u[end]))
+errory = maximum(abs.(ys[end] - solgood.u[end]) ./ abs.(solgood.u[end]))
+erroru = maximum(abs.(sol.u[end] - solgood.u[end]) ./ abs.(solgood.u[end]))
+
+@show (errory, erroru)
 @show length(ys)
 @show length(sol.u)
 
+
+# using DifferentialEquations, Plots
+# function h(du,u,p,t)
+#   du[1] = u[2]
+#   du[2] = 10(1-u[1]^2)*u[2] - u[1]
+# end
+# u0 = [2.0, 0.0]
+# tspan = (0.0, 20.0)
+# p = ODEProblem(h, u0, tspan)
+# s = solve(p,DP5(),reltol=1e-14,abstol=1e-14)
+# plot(s)
