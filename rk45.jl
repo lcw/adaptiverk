@@ -2,7 +2,8 @@ using StaticArrays, LinearAlgebra, Plots
 using Base: @kwdef
 
 @kwdef struct RK45Options
-  relativetolerance = 1e-3
+  relativetolerance = 1//10^3
+  absolutetolerance = 1//10^3
 end
 
 """   usage (time, y) = rk45(f, tspan, y0, options, varargin...)
@@ -33,7 +34,8 @@ function rk45(f, tspan, y0, options, varargin...)
 
   t0, tfinal = tspan
 
-  tau = options.relativetolerance
+  rtol = options.relativetolerance
+  atol = options.absolutetolerance
 
   C = 9//10
   h0 = 1//10^13
@@ -104,7 +106,8 @@ function rk45(f, tspan, y0, options, varargin...)
     t1 = t0 + h
 
     # compute est
-    est = max(norm(ye,Inf)/norm(y1,Inf),eps(eltype(y1)))/tau
+    # est = max(norm(ye,Inf)/norm(y1,Inf),eps(eltype(y1)))/tau
+    est = max(norm(ye./(atol+rtol*abs.(y1)),Inf),eps(eltype(y1)))
 
     beta2 = 4//100
     beta1 = typeof(beta2)(1//p) - 3beta2/4
@@ -160,7 +163,8 @@ function f(t, y)
             3y[1]-y[1]^2*y[2]]
 end
 
-options = RK45Options(relativetolerance=1e-4)
+options = RK45Options(relativetolerance=1e-8,
+                      absolutetolerance=1e-8)
 y0 = @SVector [1.01, 3.0]
 tspan = (0.0, 20.0)
 ts, ys, es, ta, ha, tr, hr = rk45(f, tspan, y0, options)
@@ -184,7 +188,7 @@ prob = ODEProblem(g, u0, tspan)
 solgood = solve(prob,DP5(),reltol=1e-14,abstol=1e-14)
 
 sol = solve(prob,DP5(),reltol=options.relativetolerance,
-                       abstol=options.relativetolerance)
+                       abstol=options.absolutetolerance)
 
 @show errory = maximum(abs.(ys[end] - solgood.u[end]))
 @show erroru = maximum(abs.(sol.u[end] - solgood.u[end]))
